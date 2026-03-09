@@ -1,0 +1,1355 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Times Tables</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Nunito+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f0ece3;
+    --card: #fffdf7;
+    --ink: #1a1714;
+    --ink-soft: #6b6660;
+    --ink-faint: #b8b3ac;
+    --accent: #e85d26;
+    --accent-light: #fde8de;
+    --green: #2a9d5c;
+    --green-light: #d6f5e6;
+    --yellow: #f5b800;
+    --yellow-light: #fff8d6;
+    --blue: #2563eb;
+    --blue-light: #dbeafe;
+    --border: #e2ddd5;
+    --shadow: 0 2px 16px rgba(0,0,0,0.07);
+    --r: 20px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    font-family: 'Nunito Sans', sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    overflow-x: hidden;
+  }
+
+  /* ——— SCREENS ——— */
+  .screen { display: none; width: 100%; max-width: 640px; padding: 24px 20px 40px; min-height: 100vh; flex-direction: column; }
+  .screen.active { display: flex; }
+
+  /* ——— HOME ——— */
+  #home { justify-content: flex-start; gap: 0; overflow-y: auto; }
+
+  .home-header { text-align: center; padding-top: 16px; }
+  .home-header h1 {
+    font-family: 'Nunito', sans-serif;
+    font-size: 42px;
+    font-weight: 900;
+    letter-spacing: -1.5px;
+    color: var(--ink);
+    line-height: 1;
+  }
+  .home-header h1 span { color: var(--accent); }
+  .home-header p { color: var(--ink-soft); margin-top: 6px; font-size: 15px; }
+
+
+
+  .progress-overview {
+    background: var(--card);
+    border-radius: var(--r);
+    padding: 16px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+    margin-top: 20px;
+  }
+  .progress-overview h2 { font-family: 'Nunito', sans-serif; font-size: 13px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 10px; }
+
+  /* Grid with row/col labels */
+  .grid-wrap {
+    display: grid;
+    grid-template-columns: 22px repeat(12, 1fr);
+    grid-template-rows: 18px repeat(12, 1fr);
+    gap: 3px;
+  }
+  .grid-label {
+    font-family: 'Nunito', sans-serif;
+    font-size: 9px; font-weight: 800;
+    color: var(--ink-faint);
+    display: flex; align-items: center; justify-content: center;
+    line-height: 1;
+    border-radius: 4px;
+    transition: background 0.15s, color 0.15s;
+  }
+  .grid-label.row-label {
+    cursor: pointer;
+    user-select: none;
+  }
+  .grid-label.row-label:hover { background: var(--accent-light); color: var(--accent); }
+  .grid-label.row-label.selected { background: var(--accent); color: white; }
+  .grid-corner { cursor: default; }
+
+  .fact-cell {
+    aspect-ratio: 1;
+    border-radius: 4px;
+    background: #e2ddd5;
+    position: relative;
+    cursor: default;
+    transition: background 0.3s, transform 0.1s;
+  }
+  .fact-cell.in-selected-row {
+    outline: 2px solid var(--accent);
+    outline-offset: -1px;
+  }
+  /* Square facts (a×a) marked with a subtle corner triangle */
+  .fact-cell.is-square::after {
+    content: '';
+    position: absolute;
+    top: 0; right: 0;
+    border-style: solid;
+    border-width: 0 7px 7px 0;
+    border-color: transparent rgba(0,0,0,0.18) transparent transparent;
+    border-radius: 0 4px 0 0;
+  }
+
+  /* Confidence score + lapse overlay inside cell */
+  .fact-cell .cell-conf {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    font-family: 'Nunito', sans-serif;
+    font-weight: 900; line-height: 1.15;
+    pointer-events: none;
+  }
+  .cell-conf .cv { font-size: 7.5px; }
+  .cell-conf .lv { font-size: 6px; opacity: 0.75; }
+
+  /* Heatmap legend strip */
+  .heatmap-legend {
+    display: flex; align-items: center; gap: 6px; margin-top: 10px;
+  }
+  .heatmap-strip {
+    flex: 1; height: 10px; border-radius: 5px;
+    background: linear-gradient(to right,
+      #dedad3          0%,   /* new – grey */
+      #dedad3          1%,
+      rgb(200,60,30)   2%,   /* 0 – dark red */
+      rgb(240,185,20) 30%,   /* 3 – amber */
+      rgb(235,220,30) 42%,   /* 4 – yellow */
+      rgb(140,210,120) 62%,  /* 6 – light green */
+      rgb(42,157,85)  80%,   /* 8 – mastered green */
+      rgb(18,100,50)  100%   /* 10 – deep green */
+    );
+  }
+  .heatmap-label { font-size: 10px; color: var(--ink-faint); font-weight: 700; }
+
+  /* Row drill action bar */
+  .drill-bar {
+    display: none; align-items: center; justify-content: space-between;
+    background: var(--accent-light); border: 1.5px solid var(--accent);
+    border-radius: 12px; padding: 10px 14px; margin-top: 10px;
+    gap: 10px;
+  }
+  .drill-bar.visible { display: flex; }
+  .drill-bar-label {
+    font-family: 'Nunito', sans-serif; font-size: 14px; font-weight: 800;
+    color: var(--accent);
+  }
+  .drill-btn {
+    background: var(--accent); color: white; border: none;
+    font-family: 'Nunito', sans-serif; font-size: 14px; font-weight: 800;
+    padding: 8px 16px; border-radius: 10px; cursor: pointer;
+    transition: opacity 0.1s;
+    white-space: nowrap;
+  }
+  .drill-btn:active { opacity: 0.8; }
+  .drill-dismiss {
+    background: none; border: none; font-size: 18px; cursor: pointer;
+    color: var(--accent); padding: 2px 4px; line-height: 1;
+  }
+
+  /* Session mode badge shown in practice topbar */
+  .session-mode-badge {
+    font-family: 'Nunito', sans-serif; font-size: 11px; font-weight: 800;
+    background: var(--accent-light); color: var(--accent);
+    padding: 3px 8px; border-radius: 20px; white-space: nowrap;
+    display: none;
+  }
+  .session-mode-badge.visible { display: block; }
+
+  .session-config {
+    background: var(--card);
+    border-radius: var(--r);
+    padding: 20px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+    margin-top: 16px;
+  }
+  .session-config h2 { font-family: 'Nunito', sans-serif; font-size: 13px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 14px; }
+
+  .config-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .config-row:last-child { border-bottom: none; }
+  .config-label { font-size: 15px; font-weight: 600; }
+  .config-sublabel { font-size: 12px; color: var(--ink-soft); }
+
+  .stepper { display: flex; align-items: center; gap: 12px; }
+  .stepper button {
+    width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--border);
+    background: var(--bg); font-size: 18px; font-weight: 700; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; transition: all 0.15s;
+    color: var(--ink);
+  }
+  .stepper button:active { background: var(--accent); border-color: var(--accent); color: white; }
+  .stepper span { font-family: 'Nunito', sans-serif; font-size: 20px; font-weight: 800; min-width: 28px; text-align: center; }
+
+  .toggle-switch {
+    width: 48px; height: 28px; background: var(--border); border-radius: 14px;
+    cursor: pointer; position: relative; transition: background 0.2s;
+  }
+  .toggle-switch.on { background: var(--green); }
+  .toggle-switch::after {
+    content: ''; position: absolute; width: 22px; height: 22px;
+    background: white; border-radius: 50%; top: 3px; left: 3px;
+    transition: left 0.2s; box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  }
+  .toggle-switch.on::after { left: 23px; }
+
+  .btn-primary {
+    display: block; width: 100%; padding: 18px; margin-top: 16px;
+    background: var(--accent); color: white; border: none; border-radius: 16px;
+    font-family: 'Nunito', sans-serif; font-size: 20px; font-weight: 900;
+    cursor: pointer; letter-spacing: 0.3px;
+    box-shadow: 0 4px 20px rgba(232, 93, 38, 0.35);
+    transition: transform 0.1s, box-shadow 0.1s;
+  }
+  .btn-primary:active { transform: scale(0.98); box-shadow: 0 2px 10px rgba(232,93,38,0.25); }
+  .btn-secondary {
+    display: block; width: 100%; padding: 14px; margin-top: 10px;
+    background: transparent; color: var(--ink-soft); border: 2px solid var(--border);
+    border-radius: 16px; font-family: 'Nunito', sans-serif; font-size: 16px;
+    font-weight: 700; cursor: pointer; transition: all 0.15s;
+  }
+  .btn-secondary:active { background: var(--border); }
+
+  /* ——— PRACTICE ——— */
+  #practice { justify-content: space-between; padding-top: 16px; }
+
+  .practice-topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .progress-bar-wrap {
+    flex: 1; height: 8px; background: var(--border); border-radius: 4px; margin: 0 12px; overflow: hidden;
+  }
+  .progress-bar-fill {
+    height: 100%; background: var(--accent); border-radius: 4px;
+    transition: width 0.4s cubic-bezier(.4,0,.2,1);
+  }
+  .session-count { font-size: 13px; font-weight: 700; color: var(--ink-soft); white-space: nowrap; }
+
+  .timer-display {
+    text-align: center; height: 28px; margin-bottom: 4px;
+    font-family: 'Nunito', sans-serif; font-size: 20px; font-weight: 700; color: var(--ink-soft);
+  }
+
+  .fact-card {
+    background: var(--card);
+    border-radius: 28px;
+    padding: 36px 24px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+    text-align: center;
+    flex: 1;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    position: relative; overflow: hidden; min-height: 180px;
+    margin-bottom: 16px;
+  }
+
+  .fact-question {
+    font-family: 'Nunito', sans-serif;
+    font-size: 64px;
+    font-weight: 900;
+    letter-spacing: -2px;
+    color: var(--ink);
+    line-height: 1;
+  }
+  .fact-question .times-sign { color: var(--accent); }
+
+  .answer-display {
+    font-family: 'Nunito', sans-serif;
+    font-size: 52px;
+    font-weight: 800;
+    color: var(--ink);
+    min-height: 64px;
+    margin-top: 12px;
+    letter-spacing: -1px;
+    transition: color 0.15s;
+  }
+  .answer-display.placeholder { color: var(--border); }
+
+  /* Full-card feedback overlay */
+  .feedback-overlay {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    border-radius: 28px;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.22s ease;
+    gap: 6px;
+  }
+  .feedback-overlay.show { opacity: 1; pointer-events: auto; }
+  .feedback-overlay.correct { background: #1e9e57; }
+  .feedback-overlay.wrong   { background: #e85d26; }
+
+  .feedback-icon {
+    font-size: 52px; line-height: 1;
+  }
+  .feedback-equation {
+    font-family: 'Nunito', sans-serif;
+    font-size: 48px; font-weight: 900;
+    color: white; letter-spacing: -1.5px; line-height: 1.1;
+  }
+  .feedback-label {
+    font-family: 'Nunito', sans-serif;
+    font-size: 16px; font-weight: 700;
+    color: rgba(255,255,255,0.75); margin-top: 4px;
+    letter-spacing: 0.3px;
+  }
+
+  /* Correction-mode: prompt to retype */
+  .correction-prompt {
+    font-family: 'Nunito', sans-serif;
+    font-size: 14px; font-weight: 700;
+    color: rgba(255,255,255,0.85);
+    margin-top: 8px; letter-spacing: 0.2px;
+  }
+
+  /* Typed input shown on wrong overlay */
+  .correction-input {
+    font-family: 'Nunito', sans-serif;
+    font-size: 44px; font-weight: 900;
+    color: white;
+    min-height: 56px; min-width: 80px;
+    background: rgba(255,255,255,0.18);
+    border-radius: 12px;
+    padding: 4px 20px;
+    margin-top: 8px;
+    letter-spacing: -1px;
+    border: 2px solid rgba(255,255,255,0.35);
+    text-align: center;
+  }
+  .correction-input.empty { color: rgba(255,255,255,0.4); }
+
+  /* Black confirm overlay */
+  .feedback-overlay.confirm { background: #1a1714; }
+  .confirm-check {
+    font-size: 56px; line-height: 1;
+  }
+
+  /* 10-KEY KEYBOARD */
+  .keyboard-area { flex-shrink: 0; }
+  .numpad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .key {
+    height: 72px; border-radius: 16px; border: none;
+    background: var(--card); color: var(--ink);
+    font-family: 'Nunito', sans-serif; font-size: 26px; font-weight: 800;
+    cursor: pointer; box-shadow: 0 3px 0 var(--border);
+    transition: transform 0.08s, box-shadow 0.08s;
+    display: flex; align-items: center; justify-content: center;
+    border: 1px solid var(--border);
+  }
+  .key:active { transform: translateY(3px); box-shadow: 0 0 0 var(--border); }
+  .key.zero { grid-column: 1 / 3; }
+  .key.backspace { background: var(--bg); color: var(--ink-soft); font-size: 20px; }
+  .key.submit {
+    height: 72px; width: 100%; border-radius: 16px; border: none;
+    background: var(--accent); color: white;
+    font-family: 'Nunito', sans-serif; font-size: 20px; font-weight: 900;
+    cursor: pointer; box-shadow: 0 4px 0 #c04010;
+    transition: transform 0.08s, box-shadow 0.08s;
+    letter-spacing: 0.5px;
+  }
+  .key.submit:active { transform: translateY(4px); box-shadow: 0 0 0 #c04010; }
+  .key.submit:disabled { background: var(--border); box-shadow: 0 3px 0 #ccc; color: var(--ink-faint); }
+
+  /* ——— RESULTS ——— */
+  #results { justify-content: flex-start; gap: 16px; }
+  .results-header { text-align: center; padding-top: 10px; }
+  .results-header h1 { font-family: 'Nunito', sans-serif; font-size: 36px; font-weight: 900; }
+  .results-header .score-big {
+    font-family: 'Nunito', sans-serif; font-size: 72px; font-weight: 900;
+    line-height: 1; color: var(--accent); letter-spacing: -3px;
+  }
+  .results-header p { color: var(--ink-soft); font-size: 15px; margin-top: 4px; }
+
+  .results-list {
+    background: var(--card); border-radius: var(--r);
+    padding: 16px; box-shadow: var(--shadow); border: 1px solid var(--border);
+  }
+  .results-list h2 { font-family: 'Nunito', sans-serif; font-size: 13px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 12px; }
+  .result-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 0; border-bottom: 1px solid var(--border);
+    font-size: 16px;
+  }
+  .result-item:last-child { border-bottom: none; }
+  .result-fact { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 18px; }
+  .result-right { display: flex; align-items: center; gap: 10px; }
+  .result-time { font-size: 13px; color: var(--ink-soft); }
+  .result-badge {
+    width: 28px; height: 28px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 800;
+  }
+  .result-badge.correct { background: var(--green-light); color: var(--green); }
+  .result-badge.wrong { background: var(--accent-light); color: var(--accent); }
+
+  /* Tooltip for fact grid */
+  .tooltip {
+    position: fixed; background: var(--ink); color: white;
+    padding: 6px 10px; border-radius: 8px; font-size: 12px; font-weight: 700;
+    pointer-events: none; opacity: 0; transition: opacity 0.15s; z-index: 100;
+  }
+
+  /* Animations */
+  @keyframes bounce-in {
+    0% { transform: scale(0.85); opacity: 0; }
+    60% { transform: scale(1.05); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  .bounce-in { animation: bounce-in 0.3s ease forwards; }
+
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-8px); }
+    40% { transform: translateX(8px); }
+    60% { transform: translateX(-5px); }
+    80% { transform: translateX(5px); }
+  }
+  .shake { animation: shake 0.35s ease; }
+
+  .streak-badge {
+    position: absolute; top: 12px; right: 12px;
+    background: var(--yellow); color: var(--ink);
+    font-family: 'Nunito', sans-serif; font-size: 12px; font-weight: 800;
+    padding: 4px 10px; border-radius: 20px;
+    display: flex; align-items: center; gap: 4px;
+  }
+</style>
+</head>
+<body>
+
+<!-- HOME SCREEN -->
+<div id="home" class="screen active">
+  <div>
+    <div class="home-header">
+      <h1>Times<br><span>Tables</span></h1>
+      <p>Learn smarter, not harder</p>
+    </div>
+
+    <div class="progress-overview" style="margin-top:20px">
+      <h2>Your Facts (1–12) <span style="font-weight:400;font-size:11px;color:var(--ink-faint);letter-spacing:0;text-transform:none">tap a row number to drill it</span></h2>
+      <div class="grid-wrap" id="factGrid"></div>
+      <div class="heatmap-legend">
+        <span class="heatmap-label">new</span>
+        <div class="heatmap-strip"></div>
+        <span class="heatmap-label">10</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:2px;padding:0 30px">
+        <span style="font-size:9px;color:var(--ink-faint);font-weight:700">0</span>
+        <span style="font-size:9px;color:var(--ink-faint);font-weight:700">Learning</span>
+        <span style="font-size:9px;color:var(--ink-faint);font-weight:700">Mastered</span>
+      </div>
+      <div class="drill-bar" id="drillBar">
+        <span class="drill-bar-label" id="drillBarLabel">×N row selected</span>
+        <button class="drill-btn" id="drillBtn">Practice this row →</button>
+        <button class="drill-dismiss" id="drillDismiss">✕</button>
+      </div>
+    </div>
+
+    <div class="session-config">
+      <h2>Session Setup</h2>
+      <div class="config-row">
+        <div>
+          <div class="config-label">Facts per session</div>
+          <div class="config-sublabel">Target: 20–36 for 2×/week coverage</div>
+        </div>
+        <div class="stepper">
+          <button id="decFacts">−</button>
+          <span id="factsCount">20</span>
+          <button id="incFacts">+</button>
+        </div>
+      </div>
+      <div class="config-row">
+        <div>
+          <div class="config-label">Show timer</div>
+          <div class="config-sublabel">Track response time</div>
+        </div>
+        <div class="toggle-switch" id="timerToggle"></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:20px">
+    <button class="btn-primary" id="startBtn">Start Practice</button>
+    <button class="btn-secondary" id="resetBtn">Reset All Progress</button>
+    <div id="resetConfirm" style="display:none; margin-top:10px; background:var(--accent-light); border:1.5px solid var(--accent); border-radius:14px; padding:14px 16px;">
+      <div style="font-family:'Nunito',sans-serif; font-weight:800; font-size:14px; color:var(--accent); margin-bottom:10px;">Erase all progress? This cannot be undone.</div>
+      <div style="display:flex; gap:8px;">
+        <button id="resetConfirmYes" style="flex:1; padding:10px; background:var(--accent); color:white; border:none; border-radius:10px; font-family:'Nunito',sans-serif; font-size:14px; font-weight:800; cursor:pointer;">Yes, reset</button>
+        <button id="resetConfirmNo" style="flex:1; padding:10px; background:white; color:var(--ink); border:1.5px solid var(--border); border-radius:10px; font-family:'Nunito',sans-serif; font-size:14px; font-weight:700; cursor:pointer;">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PRACTICE SCREEN -->
+<div id="practice" class="screen">
+  <div>
+    <div class="practice-topbar">
+      <button id="quitBtn" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--ink-soft);padding:4px 8px;">✕</button>
+      <div class="progress-bar-wrap">
+        <div class="progress-bar-fill" id="progressFill" style="width:0%"></div>
+      </div>
+      <span class="session-mode-badge" id="sessionModeBadge"></span>
+      <div class="session-count" id="sessionCount">0 / 10</div>
+    </div>
+    <div class="timer-display" id="timerDisplay"></div>
+    <div class="fact-card" id="factCard">
+      <div class="streak-badge" id="streakBadge" style="display:none">🔥 <span id="streakCount">0</span></div>
+      <div class="fact-question" id="factQuestion">
+        <span id="qA">3</span> <span class="times-sign">×</span> <span id="qB">4</span>
+      </div>
+      <div class="answer-display placeholder" id="answerDisplay">?</div>
+      <!-- Correct overlay -->
+      <div class="feedback-overlay correct" id="overlayCorrect">
+        <div class="feedback-icon">✓</div>
+        <div class="feedback-equation" id="overlayCorrectEq">3 × 4 = 12</div>
+      </div>
+      <!-- Wrong overlay -->
+      <div class="feedback-overlay wrong" id="overlayWrong">
+        <div class="feedback-icon">✗</div>
+        <div class="feedback-equation" id="overlayWrongEq">3 × 4 = 12</div>
+        <div class="correction-prompt">Now type the correct answer ↓</div>
+        <div class="correction-input empty" id="correctionInput">?</div>
+      </div>
+      <!-- Black confirm overlay -->
+      <div class="feedback-overlay confirm" id="overlayConfirm">
+        <div class="confirm-check">✓</div>
+        <div class="feedback-equation" id="overlayConfirmEq" style="font-size:36px;color:rgba(255,255,255,0.7)"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="keyboard-area">
+    <div class="numpad" id="numpad">
+      <button class="key" data-key="7">7</button>
+      <button class="key" data-key="8">8</button>
+      <button class="key" data-key="9">9</button>
+      <button class="key" data-key="4">4</button>
+      <button class="key" data-key="5">5</button>
+      <button class="key" data-key="6">6</button>
+      <button class="key" data-key="1">1</button>
+      <button class="key" data-key="2">2</button>
+      <button class="key" data-key="3">3</button>
+      <button class="key zero" data-key="0">0</button>
+      <button class="key backspace" data-key="back">⌫</button>
+    </div>
+    <button class="key submit" id="submitBtn" disabled>Check Answer</button>
+  </div>
+</div>
+
+<!-- RESULTS SCREEN -->
+<div id="results" class="screen">
+  <div class="results-header">
+    <h1>Session Done!</h1>
+    <div class="score-big" id="scoreBig">8/10</div>
+    <p id="scoreSubtitle">Great work — keep it up!</p>
+  </div>
+
+  <div class="results-list">
+    <h2>This Session</h2>
+    <div id="resultsList"></div>
+  </div>
+
+  <button class="btn-primary" id="practiceAgainBtn">Practice Again</button>
+  <button class="btn-secondary" id="homeBtn">Back to Home</button>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+// ═══════════════════════════════════════════════
+// SCORING & SPACED REPETITION ENGINE
+// ═══════════════════════════════════════════════
+//
+// confidence 0–10 per fact. Speed-weighted gains on correct,
+// penalty on wrong. Priority drives session selection.
+// Lapse (days since last) adds urgency over time.
+
+const TARGET_MS         = 4000;
+const BASE_GAIN         = 1.2;
+const WRONG_PENALTY     = 2.0;
+const MASTERY_THRESHOLD = 8.0;
+
+// ── Canonical key ────────────────────────────────
+// Inverse facts (a×b and b×a) share one record.
+// The canonical key always has the smaller factor first.
+function canonicalKey(a, b) {
+  return a <= b ? `${a}x${b}` : `${b}x${a}`;
+}
+
+// ── Persistence ──────────────────────────────────
+const DB_KEY = 'ttDB_v5';
+
+function loadDB() {
+  for (const key of [DB_KEY, 'timesTablesDB_v4', 'timesTablesDB_v3', 'timesTablesDB_v2']) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw) return JSON.parse(raw);
+    } catch {}
+  }
+  return null;
+}
+
+function saveDB(db) {
+  try { localStorage.setItem(DB_KEY, JSON.stringify(db)); }
+  catch(e) { console.warn('DB save failed:', e); }
+}
+
+function makeFact(a, b) {
+  // Always store with canonical (smaller first) orientation
+  const lo = Math.min(a, b), hi = Math.max(a, b);
+  return { a: lo, b: hi, confidence: 0, lastPracticed: 0,
+           totalAnswers: 0, correctAnswers: 0, avgResponseMs: null };
+}
+
+function initDB() {
+  const db = { facts: {}, settings: { streak: 0, lastDate: null }, sessionHistory: [] };
+  // Only store the 78 canonical facts (upper triangle incl. diagonal)
+  for (let a = 1; a <= 12; a++)
+    for (let b = a; b <= 12; b++)
+      db.facts[`${a}x${b}`] = makeFact(a, b);
+  return db;
+}
+
+function migrateDB(db) {
+  if (!db.sessionHistory) db.sessionHistory = [];
+  let dirty = false;
+
+  // Build a clean canonical facts map, merging any non-canonical entries
+  const canonical = {};
+  for (let a = 1; a <= 12; a++)
+    for (let b = a; b <= 12; b++)
+      canonical[`${a}x${b}`] = null;
+
+  // Pass 1: collect existing data into canonical slots
+  for (const [key, f] of Object.entries(db.facts)) {
+    const ck = canonicalKey(f.a ?? parseInt(key), f.b ?? parseInt(key.split('x')[1]));
+    if (!canonical[ck]) {
+      canonical[ck] = makeFact(...ck.split('x').map(Number));
+    }
+    const c = canonical[ck];
+    // Migrate SM-2 schema if needed
+    if (f.confidence !== undefined) {
+      // Take the better-recorded version (more answers)
+      if ((f.totalAnswers || 0) >= (c.totalAnswers || 0)) {
+        c.confidence    = f.confidence;
+        c.lastPracticed = f.lastPracticed || 0;
+        c.totalAnswers  = f.totalAnswers || 0;
+        c.correctAnswers = f.correctAnswers || 0;
+        c.avgResponseMs = f.avgResponseMs || null;
+      }
+    } else if (f.reps !== undefined) {
+      // Very old SM-2 format
+      const acc = f.totalAnswers > 0 ? f.correctAnswers / f.totalAnswers : 0;
+      const conf = Math.min(10, (f.reps || 0) * 1.5 * acc);
+      if ((f.totalAnswers || 0) >= (c.totalAnswers || 0)) {
+        c.confidence    = conf;
+        c.lastPracticed = (f.nextReview > 0 && f.interval) ? f.nextReview - f.interval * 86400000 : 0;
+        c.totalAnswers  = f.totalAnswers || 0;
+        c.correctAnswers = f.correctAnswers || 0;
+        c.avgResponseMs = f.avgTime || null;
+      }
+    }
+    dirty = true;
+  }
+
+  // Pass 2: fill any missing canonical slots
+  for (const [ck, val] of Object.entries(canonical)) {
+    if (!val) { canonical[ck] = makeFact(...ck.split('x').map(Number)); dirty = true; }
+  }
+
+  db.facts = canonical;
+  if (dirty) saveDB(db);
+  return db;
+}
+
+// ── Heatmap color ────────────────────────────────
+// 10-stop spectrum: grey (new) → dark-red → amber → yellow → lt-green → deep-green
+function confidenceColor(confidence, totalAnswers) {
+  if (totalAnswers === 0) return '#dedad3';
+  const c = Math.max(0, Math.min(10, confidence));
+  // stops: [cValue, [r, g, b]]
+  const stops = [
+    [0,  [200, 60,  30]],   // 0  – dark red (first answer, possibly wrong)
+    [1,  [220, 90,  20]],   // 1  – red-orange
+    [2,  [235, 140, 20]],   // 2  – orange
+    [3,  [240, 185, 20]],   // 3  – amber
+    [4,  [235, 220, 30]],   // 4  – yellow
+    [5,  [195, 225, 100]],  // 5  – yellow-green
+    [6,  [140, 210, 120]],  // 6  – light green
+    [7,  [80,  185, 110]],  // 7  – medium green
+    [8,  [42,  157, 85]],   // 8  – green (mastered threshold)
+    [9,  [30,  130, 68]],   // 9
+    [10, [18,  100, 50]],   // 10 – deep green
+  ];
+  for (let i = 0; i < stops.length - 1; i++) {
+    const [c0, rgb0] = stops[i], [c1, rgb1] = stops[i + 1];
+    if (c >= c0 && c <= c1) {
+      const t = (c - c0) / (c1 - c0);
+      const r = Math.round(rgb0[0] + t * (rgb1[0] - rgb0[0]));
+      const g = Math.round(rgb0[1] + t * (rgb1[1] - rgb0[1]));
+      const bv = Math.round(rgb0[2] + t * (rgb1[2] - rgb0[2]));
+      return `rgb(${r},${g},${bv})`;
+    }
+  }
+  return `rgb(18,100,50)`;
+}
+
+function cellTextColor(confidence, totalAnswers) {
+  if (totalAnswers === 0) return 'rgba(0,0,0,0.25)';
+  if (confidence >= 5) return 'rgba(0,0,0,0.55)';
+  return 'rgba(255,255,255,0.9)';
+}
+
+// ── Scoring ──────────────────────────────────────
+function lapsedays(fact) {
+  if (!fact.lastPracticed) return 0;
+  return (Date.now() - fact.lastPracticed) / 86400000;
+}
+
+function factPriority(fact) {
+  if (fact.totalAnswers === 0)
+    return 50 - Math.log(fact.a * fact.b + 1);
+  const lapse = lapsedays(fact);
+  const urgency = (10 - fact.confidence) * 3;
+  const lapseFactor = Math.min(lapse * 0.7, 15);
+  const masteryDamper = fact.confidence >= MASTERY_THRESHOLD ? 10 : 0;
+  return urgency + lapseFactor - masteryDamper;
+}
+
+function recordAnswer(fact, correct, responseMs) {
+  fact.totalAnswers++;
+  fact.lastPracticed = Date.now();
+  if (responseMs != null)
+    fact.avgResponseMs = fact.avgResponseMs != null
+      ? fact.avgResponseMs * 0.7 + responseMs * 0.3
+      : responseMs;
+  if (correct) {
+    fact.correctAnswers++;
+    const speedBonus = Math.min(1.5, Math.max(0.5,
+      1 + (TARGET_MS - responseMs) / TARGET_MS));
+    fact.confidence = Math.min(10, fact.confidence + BASE_GAIN * speedBonus);
+  } else {
+    fact.confidence = Math.max(0, fact.confidence - WRONG_PENALTY);
+  }
+}
+
+function getFactStatus(fact) {
+  if (fact.totalAnswers === 0) return 'new';
+  if (fact.confidence >= MASTERY_THRESHOLD) return 'mastered';
+  if (fact.confidence >= 5) return 'practiced';
+  return 'learning';
+}
+
+// ── Session selection ─────────────────────────────
+// Facts are stored canonically (smaller factor first).
+// For variety, non-square facts are randomly presented in either
+// orientation — the canonical record is always what gets scored.
+function flipFact(f) {
+  // Return a copy with a and b swapped (for display only)
+  if (f.a === f.b) return { ...f }; // squares unchanged
+  return Math.random() < 0.5 ? { ...f } : { ...f, a: f.b, b: f.a };
+}
+
+function pickSessionFacts(db, count) {
+  const all = Object.values(db.facts);
+  const newFacts = all.filter(f => f.totalAnswers === 0)
+    .sort((a, b) => (a.a * a.b) - (b.a * b.b));
+  const practiced = all.filter(f => f.totalAnswers > 0)
+    .sort((a, b) => factPriority(b) - factPriority(a));
+
+  const selected = [], seen = new Set();
+  const add = f => {
+    const k = canonicalKey(f.a, f.b);
+    if (!seen.has(k)) { seen.add(k); selected.push(flipFact(f)); }
+  };
+
+  const newSlots = Math.min(4, Math.ceil(count * 0.2), newFacts.length);
+  newFacts.slice(0, newSlots).forEach(add);
+  practiced.forEach(f => { if (selected.length < count) add(f); });
+  newFacts.slice(newSlots).forEach(f => { if (selected.length < count) add(f); });
+
+  for (let i = selected.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [selected[i], selected[j]] = [selected[j], selected[i]];
+  }
+  return selected;
+}
+
+// Row drill: all 12 facts for a given multiplier row, shuffled.
+// Each fact is stamped with the display orientation (row × b) even
+// if the canonical record has the factors the other way round.
+function pickRowFacts(db, row) {
+  const facts = [];
+  for (let b = 1; b <= 12; b++) {
+    const ck = canonicalKey(row, b);
+    const rec = db.facts[ck];
+    if (rec) {
+      // Spread the canonical record but override a/b to match drill orientation
+      facts.push({ ...rec, a: row, b });
+    }
+  }
+  for (let i = facts.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [facts[i], facts[j]] = [facts[j], facts[i]];
+  }
+  return facts;
+}
+
+// ═══════════════════════════════════════════════
+// APP STATE
+// ═══════════════════════════════════════════════
+
+let db;
+let sessionFacts = [];
+let sessionIdx = 0;
+let sessionResults = [];
+let currentAnswer = '';
+let submitted = false;
+let correctionMode = false;
+let factStartTime = 0;
+let timerOn = false;
+let factsPerSession = 20;
+let timerInterval = null;
+let autoAdvanceTimer = null;
+let sessionStreak = 0;
+let questionElapsed = 0;
+let selectedDrillRow = null;  // null = no row selected; number = row being drilled
+let sessionMode = 'normal';   // 'normal' | 'drill'
+
+// ═══════════════════════════════════════════════
+// UI HELPERS
+// ═══════════════════════════════════════════════
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function updateHomeStats() {
+  const grid = document.getElementById('factGrid');
+  grid.innerHTML = '';
+
+  // Corner
+  const corner = document.createElement('div');
+  corner.className = 'grid-label grid-corner';
+  grid.appendChild(corner);
+
+  // Column headers
+  for (let b = 1; b <= 12; b++) {
+    const lbl = document.createElement('div');
+    lbl.className = 'grid-label';
+    lbl.textContent = b;
+    grid.appendChild(lbl);
+  }
+
+  // Rows
+  for (let a = 1; a <= 12; a++) {
+    // Row label — tappable for drill
+    const rowLbl = document.createElement('div');
+    rowLbl.className = 'grid-label row-label' + (selectedDrillRow === a ? ' selected' : '');
+    rowLbl.textContent = a;
+    rowLbl.addEventListener('click', () => selectDrillRow(a));
+    grid.appendChild(rowLbl);
+
+    // Cells
+    for (let b = 1; b <= 12; b++) {
+      const ck = canonicalKey(a, b);
+      const fact = db.facts[ck];
+      const isMirror = b < a;   // below the diagonal — inverse of an above-diagonal cell
+      const isSquare = a === b;
+
+      const cell = document.createElement('div');
+      let cls = 'fact-cell';
+      if (selectedDrillRow === a) cls += ' in-selected-row';
+      if (isSquare) cls += ' is-square';
+      cell.className = cls;
+
+      const color = fact ? confidenceColor(fact.confidence, fact.totalAnswers) : '#dedad3';
+      cell.style.background = color;
+      // Mirror cells get slight transparency so the diagonal symmetry is perceptible
+      if (isMirror) cell.style.opacity = '0.82';
+
+      if (fact && fact.totalAnswers > 0) {
+        const lapse = lapsedays(fact);
+        const priority = factPriority(fact);
+        const confStr = fact.confidence.toFixed(1);
+        const lapseStr = lapse < 1 ? '<1d'
+          : lapse < 10 ? lapse.toFixed(1) + 'd'
+          : Math.round(lapse) + 'd';
+        const textCol = cellTextColor(fact.confidence, fact.totalAnswers);
+
+        const inner = document.createElement('div');
+        inner.className = 'cell-conf';
+        inner.style.color = textCol;
+        inner.innerHTML = `<span class="cv">${confStr}</span><span class="lv">${lapseStr}</span>`;
+        cell.appendChild(inner);
+
+        const canonLabel = ck.replace('x', '×');
+        const tip = `${a}×${b}=${a*b}${isMirror ? ` (= ${canonLabel})` : ''} | conf:${confStr} lapse:${lapseStr} pri:${priority.toFixed(1)}`;
+        cell.addEventListener('mouseenter', e => showTooltip(e, tip));
+      } else {
+        const isMirrorNote = isMirror ? ` (= ${ck.replace('x','×')})` : '';
+        cell.addEventListener('mouseenter', e => showTooltip(e, `${a}×${b}=${a*b}${isMirrorNote} | new`));
+      }
+      cell.addEventListener('mouseleave', hideTooltip);
+      grid.appendChild(cell);
+    }
+  }
+
+  // Update drill bar
+  const bar = document.getElementById('drillBar');
+  if (selectedDrillRow !== null) {
+    bar.classList.add('visible');
+    document.getElementById('drillBarLabel').textContent =
+      `×${selectedDrillRow} table — 12 facts`;
+  } else {
+    bar.classList.remove('visible');
+  }
+}
+
+function selectDrillRow(row) {
+  selectedDrillRow = selectedDrillRow === row ? null : row;
+  updateHomeStats();
+}
+
+function showTooltip(e, text) {
+  const t = document.getElementById('tooltip');
+  t.textContent = text;
+  t.style.left = (e.clientX + 12) + 'px';
+  t.style.top = (e.clientY - 28) + 'px';
+  t.style.opacity = '1';
+}
+function hideTooltip() {
+  document.getElementById('tooltip').style.opacity = '0';
+}
+
+// ═══════════════════════════════════════════════
+// SESSION LOGIC
+// ═══════════════════════════════════════════════
+
+function startSession(drillRow) {
+  if (drillRow) {
+    sessionMode = 'drill';
+    sessionFacts = pickRowFacts(db, drillRow);
+  } else {
+    sessionMode = 'normal';
+    sessionFacts = pickSessionFacts(db, factsPerSession);
+  }
+  if (sessionFacts.length === 0) {
+    alert('No facts to practice!');
+    return;
+  }
+  sessionIdx = 0;
+  sessionResults = [];
+  sessionStreak = 0;
+  showScreen('practice');
+
+  // Show/hide session mode badge
+  const badge = document.getElementById('sessionModeBadge');
+  if (sessionMode === 'drill') {
+    badge.textContent = `×${drillRow} drill`;
+    badge.classList.add('visible');
+  } else {
+    badge.classList.remove('visible');
+  }
+
+  loadFact();
+}
+
+function loadFact() {
+  const fact = sessionFacts[sessionIdx];
+  currentAnswer = '';
+  submitted = false;
+  correctionMode = false;
+  questionElapsed = 0;
+
+  document.getElementById('qA').textContent = fact.a;
+  document.getElementById('qB').textContent = fact.b;
+  document.getElementById('answerDisplay').textContent = '?';
+  document.getElementById('answerDisplay').className = 'answer-display placeholder';
+  document.getElementById('progressFill').style.width = (sessionIdx / sessionFacts.length * 100) + '%';
+  document.getElementById('sessionCount').textContent = `${sessionIdx} / ${sessionFacts.length}`;
+
+  // Hide overlays
+  document.getElementById('overlayCorrect').classList.remove('show');
+  document.getElementById('overlayWrong').classList.remove('show');
+  document.getElementById('overlayConfirm').classList.remove('show');
+  // Reset correction input
+  const ci = document.getElementById('correctionInput');
+  ci.textContent = '?';
+  ci.className = 'correction-input empty';
+
+  // Submit button
+  const submitBtn = document.getElementById('submitBtn');
+  submitBtn.textContent = 'Check Answer';
+  submitBtn.className = 'key submit';
+  submitBtn.disabled = true;
+
+  // Enable numpad
+  setNumpadEnabled(true);
+
+  // Bounce in card
+  const card = document.getElementById('factCard');
+  card.classList.remove('bounce-in');
+  void card.offsetWidth;
+  card.classList.add('bounce-in');
+
+  // Timer
+  factStartTime = Date.now();
+  if (timerOn) {
+    clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+      questionElapsed = (Date.now() - factStartTime) / 1000;
+      document.getElementById('timerDisplay').textContent = questionElapsed.toFixed(1) + 's';
+    }, 100);
+  } else {
+    document.getElementById('timerDisplay').textContent = '';
+  }
+
+  updateStreakBadge();
+}
+
+function setNumpadEnabled(enabled) {
+  document.querySelectorAll('#numpad .key').forEach(k => k.disabled = !enabled);
+}
+
+function pressKey(k) {
+  if (submitted && !correctionMode) return;
+  if (k === 'back') {
+    currentAnswer = currentAnswer.slice(0, -1);
+  } else {
+    if (currentAnswer.length >= 3) return;
+    currentAnswer += k;
+  }
+
+  if (correctionMode) {
+    // Update the correction input display on the orange overlay
+    const ci = document.getElementById('correctionInput');
+    if (currentAnswer === '') {
+      ci.textContent = '?';
+      ci.className = 'correction-input empty';
+    } else {
+      ci.textContent = currentAnswer;
+      ci.className = 'correction-input';
+    }
+
+    // Also mirror in answerDisplay (behind overlay)
+    document.getElementById('answerDisplay').textContent = currentAnswer || '';
+
+    // Check for match
+    const fact = sessionFacts[sessionIdx];
+    const correctStr = String(fact.a * fact.b);
+    if (currentAnswer === correctStr) {
+      // Hide wrong overlay, show black confirm briefly
+      document.getElementById('overlayWrong').classList.remove('show');
+      document.getElementById('overlayConfirmEq').textContent = `${fact.a} × ${fact.b} = ${fact.a * fact.b}`;
+      document.getElementById('overlayConfirm').classList.add('show');
+      setNumpadEnabled(false);
+      setTimeout(() => nextFact(), 700);
+    }
+    return;
+  }
+
+  // Normal (pre-submit) mode
+  const disp = document.getElementById('answerDisplay');
+  if (currentAnswer === '') {
+    disp.textContent = '?';
+    disp.className = 'answer-display placeholder';
+    document.getElementById('submitBtn').disabled = true;
+  } else {
+    disp.textContent = currentAnswer;
+    disp.className = 'answer-display';
+    document.getElementById('submitBtn').disabled = false;
+  }
+}
+
+function submitAnswer() {
+  if (submitted || correctionMode || currentAnswer === '') return;
+  submitted = true;
+  clearInterval(timerInterval);
+
+  const fact = sessionFacts[sessionIdx];
+  const correct = parseInt(currentAnswer) === fact.a * fact.b;
+  const responseMs = Date.now() - factStartTime;
+  const eq = `${fact.a} × ${fact.b} = ${fact.a * fact.b}`;
+
+  if (correct) {
+    // ── CORRECT: show green overlay, auto-advance after 1s ──
+    sessionStreak++;
+    document.getElementById('overlayCorrectEq').textContent = eq;
+    document.getElementById('overlayCorrect').classList.add('show');
+    setNumpadEnabled(false);
+    document.getElementById('submitBtn').disabled = true;
+
+    // Update scoring — always write to the canonical record
+    recordAnswer(db.facts[canonicalKey(fact.a, fact.b)], true, responseMs);
+    saveDB(db);
+    sessionResults.push({ a: fact.a, b: fact.b, correct: true, responseMs });
+
+    if (timerOn) document.getElementById('timerDisplay').textContent = (responseMs / 1000).toFixed(1) + 's';
+
+    autoAdvanceTimer = setTimeout(() => nextFact(), 1000);
+
+  } else {
+    // ── INCORRECT: show orange overlay, enter correction mode ──
+    sessionStreak = 0;
+    document.getElementById('overlayWrongEq').textContent = eq;
+    document.getElementById('overlayWrong').classList.add('show');
+
+    // Shake the card
+    const card = document.getElementById('factCard');
+    card.classList.add('shake');
+    setTimeout(() => card.classList.remove('shake'), 400);
+
+    // Update scoring (wrong) — always write to the canonical record
+    recordAnswer(db.facts[canonicalKey(fact.a, fact.b)], false, responseMs);
+    saveDB(db);
+    sessionResults.push({ a: fact.a, b: fact.b, correct: false, responseMs });
+
+    if (timerOn) document.getElementById('timerDisplay').textContent = (responseMs / 1000).toFixed(1) + 's';
+
+    // Enter correction mode — re-enable numpad, reset input
+    correctionMode = true;
+    currentAnswer = '';
+    const ci = document.getElementById('correctionInput');
+    ci.textContent = '?';
+    ci.className = 'correction-input empty';
+    const disp = document.getElementById('answerDisplay');
+    disp.textContent = '';
+    disp.className = 'answer-display';
+    setNumpadEnabled(true);
+    document.getElementById('submitBtn').disabled = true;
+    // Hide submit button during correction (input auto-submits on match)
+    document.getElementById('submitBtn').style.visibility = 'hidden';
+  }
+
+  updateStreakBadge();
+}
+
+function nextFact() {
+  clearTimeout(autoAdvanceTimer);
+  document.getElementById('submitBtn').style.visibility = '';
+  sessionIdx++;
+  if (sessionIdx >= sessionFacts.length) {
+    endSession();
+  } else {
+    loadFact();
+  }
+}
+
+function endSession() {
+  clearInterval(timerInterval);
+  clearTimeout(autoAdvanceTimer);
+  document.getElementById('submitBtn').style.visibility = '';
+  updateDayStreak();
+  showResults();
+}
+
+function updateDayStreak() {
+  const today = new Date().toDateString();
+  if (db.settings.lastDate !== today) {
+    const yesterday = new Date(Date.now() - 86400000).toDateString();
+    if (db.settings.lastDate === yesterday) {
+      db.settings.streak = (db.settings.streak || 0) + 1;
+    } else if (db.settings.lastDate !== today) {
+      db.settings.streak = 1;
+    }
+    db.settings.lastDate = today;
+    saveDB(db);
+  }
+}
+
+function updateStreakBadge() {
+  const badge = document.getElementById('streakBadge');
+  if (sessionStreak >= 3) {
+    badge.style.display = 'flex';
+    document.getElementById('streakCount').textContent = sessionStreak;
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+// ═══════════════════════════════════════════════
+// RESULTS
+// ═══════════════════════════════════════════════
+
+function showResults() {
+  showScreen('results');
+  const correct = sessionResults.filter(r => r.correct).length;
+  const total = sessionResults.length;
+  document.getElementById('scoreBig').textContent = `${correct}/${total}`;
+
+  // Log session to history
+  db.sessionHistory.push({
+    date: Date.now(),
+    count: total,
+    correct,
+    mode: sessionMode,
+    drillRow: sessionMode === 'drill' ? sessionFacts[0]?.a : null,
+  });
+  if (db.sessionHistory.length > 200) db.sessionHistory.splice(0, db.sessionHistory.length - 200);
+  saveDB(db);
+
+  const pct = correct / total;
+  let subtitle = 'Keep practicing!';
+  if (pct === 1) subtitle = 'Perfect score! 🌟';
+  else if (pct >= 0.8) subtitle = 'Great work — keep it up!';
+  else if (pct >= 0.6) subtitle = 'Good effort, keep practicing!';
+  document.getElementById('scoreSubtitle').textContent = subtitle;
+
+  // Update "Practice Again" label
+  document.getElementById('practiceAgainBtn').textContent =
+    sessionMode === 'drill' ? `Drill ×${sessionFacts[0]?.a} again` : 'Practice Again';
+
+  const list = document.getElementById('resultsList');
+  list.innerHTML = '';
+  sessionResults.forEach(r => {
+    const dbFact = db.facts[canonicalKey(r.a, r.b)];
+    const confStr = dbFact ? dbFact.confidence.toFixed(1) : '—';
+    const item = document.createElement('div');
+    item.className = 'result-item';
+    item.innerHTML = `
+      <span class="result-fact">${r.a} × ${r.b} = ${r.a * r.b}</span>
+      <div class="result-right">
+        <span class="result-time">${(r.responseMs/1000).toFixed(1)}s</span>
+        <span class="result-time" style="font-weight:700">conf ${confStr}</span>
+        <div class="result-badge ${r.correct ? 'correct' : 'wrong'}">${r.correct ? '✓' : '✗'}</div>
+      </div>
+    `;
+    list.appendChild(item);
+  });
+
+  updateHomeStats();
+}
+
+// ═══════════════════════════════════════════════
+// INIT & EVENTS
+// ═══════════════════════════════════════════════
+
+function init() {
+  db = loadDB() || initDB();
+  db = migrateDB(db);
+  updateHomeStats();
+
+  // Config controls
+  document.getElementById('decFacts').addEventListener('click', () => {
+    factsPerSession = Math.max(10, factsPerSession - 5);
+    document.getElementById('factsCount').textContent = factsPerSession;
+  });
+  document.getElementById('incFacts').addEventListener('click', () => {
+    factsPerSession = Math.min(50, factsPerSession + 5);
+    document.getElementById('factsCount').textContent = factsPerSession;
+  });
+  document.getElementById('factsCount').textContent = factsPerSession;
+
+  const toggle = document.getElementById('timerToggle');
+  toggle.addEventListener('click', () => {
+    timerOn = !timerOn;
+    toggle.classList.toggle('on', timerOn);
+  });
+
+  document.getElementById('startBtn').addEventListener('click', () => startSession(null));
+  document.getElementById('resetBtn').addEventListener('click', () => {
+    document.getElementById('resetConfirm').style.display = 'block';
+  });
+  document.getElementById('resetConfirmNo').addEventListener('click', () => {
+    document.getElementById('resetConfirm').style.display = 'none';
+  });
+  document.getElementById('resetConfirmYes').addEventListener('click', () => {
+    document.getElementById('resetConfirm').style.display = 'none';
+    for (const k of [DB_KEY, 'timesTablesDB_v4', 'timesTablesDB_v3', 'timesTablesDB_v2']) {
+      try { localStorage.removeItem(k); } catch {}
+    }
+    db = initDB();
+    saveDB(db);
+    selectedDrillRow = null;
+    updateHomeStats();
+  });
+
+  // Drill bar
+  document.getElementById('drillBtn').addEventListener('click', () => {
+    if (selectedDrillRow !== null) startSession(selectedDrillRow);
+  });
+  document.getElementById('drillDismiss').addEventListener('click', () => {
+    selectedDrillRow = null;
+    updateHomeStats();
+  });
+
+  // Numpad
+  document.querySelectorAll('#numpad .key').forEach(btn => {
+    btn.addEventListener('click', () => pressKey(btn.dataset.key));
+  });
+
+  // Submit
+  document.getElementById('submitBtn').addEventListener('click', () => {
+    if (!submitted && !correctionMode) submitAnswer();
+  });
+
+  document.getElementById('quitBtn').addEventListener('click', () => {
+    clearInterval(timerInterval);
+    clearTimeout(autoAdvanceTimer);
+    document.getElementById('submitBtn').style.visibility = '';
+    updateHomeStats();
+    showScreen('home');
+  });
+
+  document.getElementById('practiceAgainBtn').addEventListener('click', () => {
+    if (sessionMode === 'drill' && sessionFacts.length > 0) {
+      startSession(sessionFacts[0].a);
+    } else {
+      startSession(null);
+    }
+  });
+  document.getElementById('homeBtn').addEventListener('click', () => { updateHomeStats(); showScreen('home'); });
+
+  // Keyboard support
+  document.addEventListener('keydown', (e) => {
+    if (document.getElementById('practice').classList.contains('active')) {
+      if (e.key >= '0' && e.key <= '9') pressKey(e.key);
+      else if (e.key === 'Backspace') pressKey('back');
+      else if (e.key === 'Enter') {
+        if (!submitted && !correctionMode) submitAnswer();
+      }
+    }
+  });
+}
+
+init();
+</script>
+</body>
+</html>
