@@ -1080,7 +1080,7 @@ function pressKey(k) {
       document.getElementById('overlayConfirmEq').textContent = `${fact.a} × ${fact.b} = ${fact.a * fact.b}`;
       document.getElementById('overlayConfirm').classList.add('show');
       setNumpadEnabled(false);
-      setTimeout(() => nextFact(), 700);
+      setTimeout(() => nextFact(), 1000);
     }
     return;
   }
