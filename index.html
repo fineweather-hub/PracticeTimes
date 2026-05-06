@@ -307,6 +307,7 @@
   .feedback-overlay.show { opacity: 1; pointer-events: auto; }
   .feedback-overlay.correct { background: #1e9e57; }
   .feedback-overlay.wrong   { background: #e85d26; }
+  .feedback-overlay.almost  { background: #c47a08; }  /* within ±3 */
 
   .feedback-icon {
     font-size: 52px; line-height: 1;
@@ -753,7 +754,7 @@ function factPriority(fact) {
   return urgency + lapseFactor - masteryDamper;
 }
 
-function recordAnswer(fact, correct, responseMs) {
+function recordAnswer(fact, correct, responseMs, almost = false) {
   const isFirst = fact.totalAnswers === 0;
   fact.totalAnswers++;
   fact.lastPracticed = Date.now();
@@ -774,7 +775,11 @@ function recordAnswer(fact, correct, responseMs) {
       fact.confidence = Math.min(10, base + BASE_GAIN * speedBonus);
     }
   } else {
-    fact.confidence = Math.max(0, base - WRONG_PENALTY);
+    if (!almost) {
+      // Only penalise if clearly wrong (more than ±3 away)
+      fact.confidence = Math.max(0, base - WRONG_PENALTY);
+    }
+    // if almost (within ±3), leave confidence unchanged
   }
 }
 
@@ -1086,7 +1091,7 @@ function pressKey(k) {
     const correctStr = String(fact.a * fact.b);
     if (currentAnswer === correctStr) {
       // Hide wrong overlay, show black confirm briefly
-      document.getElementById('overlayWrong').classList.remove('show');
+      document.getElementById('overlayWrong').classList.remove('show', 'almost');
       document.getElementById('overlayConfirmEq').textContent = `${fact.a} × ${fact.b} = ${fact.a * fact.b}`;
       document.getElementById('overlayConfirm').classList.add('show');
       setNumpadEnabled(false);
@@ -1138,8 +1143,22 @@ function submitAnswer() {
   } else {
     // ── INCORRECT: show orange overlay, enter correction mode ──
     sessionStreak = 0;
+
+    // Detect 'almost' — typed number within ±3 of the correct answer
+    const typed = parseInt(currentAnswer);
+    const almost = !isNaN(typed) && Math.abs(typed - fact.a * fact.b) <= 3;
+
+    // Update overlay icon + prompt based on almost
+    const overlayWrong = document.getElementById('overlayWrong');
+    overlayWrong.querySelector('.feedback-icon').textContent = almost ? '≈' : '✗';
+    overlayWrong.querySelector('.correction-prompt').textContent =
+      almost ? 'Almost got it! Type the correct answer ↓'
+             : 'Now type the correct answer ↓';
+    if (almost) overlayWrong.classList.add('almost');
+    else         overlayWrong.classList.remove('almost');
+
     document.getElementById('overlayWrongEq').textContent = eq;
-    document.getElementById('overlayWrong').classList.add('show');
+    overlayWrong.classList.add('show');
 
     // Shake the card
     const card = document.getElementById('factCard');
@@ -1147,7 +1166,7 @@ function submitAnswer() {
     setTimeout(() => card.classList.remove('shake'), 400);
 
     // Update scoring (wrong) — always write to the canonical record
-    recordAnswer(db.facts[canonicalKey(fact.a, fact.b)], false, responseMs);
+    recordAnswer(db.facts[canonicalKey(fact.a, fact.b)], false, responseMs, almost);
     saveDB(db);
     sessionResults.push({ a: fact.a, b: fact.b, correct: false, responseMs });
 
