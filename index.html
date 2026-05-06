@@ -1342,5 +1342,19 @@ function init() {
   document.getElementById('homeBtn').addEventListener('click', () => { updateHomeStats(); showScreen('home'); });
 
   // Keyboard support
+  // Keyboard support
   document.addEventListener('keydown', (e) => {
-    if (document.getElementById('practice').c
+    if (document.getElementById('practice').classList.contains('active')) {
+      if (e.key >= '0' && e.key <= '9') pressKey(e.key);
+      else if (e.key === 'Backspace') pressKey('back');
+      else if (e.key === 'Enter') {
+        if (!submitted && !correctionMode) submitAnswer();
+      }
+    }
+  });
+}
+
+init();
+</script>
+</body>
+</html>
