@@ -764,9 +764,15 @@ function recordAnswer(fact, correct, responseMs) {
   const base = isFirst ? FIRST_ATTEMPT_MIDPOINT : fact.confidence;
   if (correct) {
     fact.correctAnswers++;
-    const speedBonus = Math.min(1.5, Math.max(0.5,
-      1 + (TARGET_MS - responseMs) / TARGET_MS));
-    fact.confidence = Math.min(10, base + BASE_GAIN * speedBonus);
+    if (fact.confidence < 5) {
+      // Snap to 5 on first correct answer when below the midpoint
+      // (covers brand-new facts and any fact driven below 5 by wrong answers)
+      fact.confidence = 5;
+    } else {
+      const speedBonus = Math.min(1.5, Math.max(0.5,
+        1 + (TARGET_MS - responseMs) / TARGET_MS));
+      fact.confidence = Math.min(10, base + BASE_GAIN * speedBonus);
+    }
   } else {
     fact.confidence = Math.max(0, base - WRONG_PENALTY);
   }
