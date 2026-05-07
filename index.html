@@ -916,8 +916,6 @@ function updateHomeStats() {
 
       const color = fact ? confidenceColor(fact.confidence, fact.totalAnswers) : '#dedad3';
       cell.style.background = color;
-      // Mirror cells get slight transparency so the diagonal symmetry is perceptible
-      if (isMirror) cell.style.opacity = '0.82';
 
       if (fact && fact.totalAnswers > 0) {
         const lapse = lapsedays(fact);
